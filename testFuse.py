@@ -76,11 +76,11 @@ def LSTM_Network(_X, config):
     # Reshape to prepare input to hidden activation
     _X = tf.reshape(_X, [-1, config.n_inputs])
     # new shape: (n_steps*batch_size, n_input)
-
+   
     # Linear activation
     _X = tf.nn.relu(tf.matmul(_X, config.W['hidden']) + config.biases['hidden'])
     # Split data because rnn cell needs a list of inputs for the RNN inner loop
-    _X = tf.split(_X, config.n_steps, 0)    
+    _X = tf.split(_X, config.n_steps, 0) #切割张量
     # new shape: n_steps * (batch_size, n_hidden)
 
     # Define two stacked LSTM cells (two recurrent layers deep) with tensorflow
@@ -106,30 +106,17 @@ train_Xdata = np.reshape(train_Xdata, [-1, config.n_steps,config.n_inputs])
 test_Xdata = np.reshape(test_Xdata, [-1, config.n_steps,config.n_inputs])
 pred_Y = LSTM_Network(X, config)
     # Loss,optimizer,evaluation
-l2 = config.lambda_loss_amount * \
-        sum(tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables())
+#l2 = config.lambda_loss_amount * \sum(tf.nn.l2_loss(tf_var) for tf_var in tf.trainable_variables())
     # Softmax loss and L2
-cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=Y, logits=pred_Y)) + l2
-optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(cost)
-correct_pred = tf.equal(tf.argmax(pred_Y, 1), tf.argmax(Y, 1))
-accuracy = tf.reduce_mean(tf.cast(correct_pred, dtype=tf.float32))
+loss = tf.losses.mean_squared_error(labels=Y, predictions=pred_Y)  # compute cost
+optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(loss)
     
-sess = tf.InteractiveSession(config=tf.ConfigProto(log_device_placement=False))
-init = tf.global_variables_initializer()
-sess.run(init)
-best_accuracy = 0.0
+sess = tf.Session()
+sess.run(tf.global_variables_initializer())     # initialize var in graph
     # Start training for each batch and loop epochs
 for i in range(config.training_epochs):
         for start, end in zip(range(0, config.train_count, config.batch_size),range(config.batch_size, config.train_count + 1, config.batch_size)):
             sess.run(optimizer, feed_dict={X: train_Xdata[start:end], Y: train_Ydata[start:end]})
         # Test completely at every epoch: calculate accuracy
-        pred_out, accuracy_out, loss_out = sess.run([pred_Y, accuracy, cost],feed_dict={X: test_Xdata,Y: test_Ydata})
-        print("traing iter: {},".format(i) + " test accuracy : {},".format(accuracy_out) + " loss : {}".format(loss_out))
-        best_accuracy = max(best_accuracy, accuracy_out)
-print("")
-print("final test accuracy: {}".format(accuracy_out))
-print("best epoch's test accuracy: {}".format(best_accuracy))
-print("")  
-
-    
-    
+        pred_out, loss_out = sess.run([pred_Y, loss],feed_dict={X: test_Xdata,Y: test_Ydata})
+        print("traing iter: {},".format(i) +  " loss : {}".format(loss_out)) 
